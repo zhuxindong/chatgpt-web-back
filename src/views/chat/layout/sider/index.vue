@@ -1,18 +1,17 @@
 <script setup lang='ts'>
 import type { CSSProperties } from 'vue'
 import { computed, ref, watch } from 'vue'
-import { NButton, NLayoutSider, useDialog } from 'naive-ui'
+import { NButton, NLayoutSider } from 'naive-ui'
 import List from './List.vue'
 import Footer from './Footer.vue'
 import { useAppStore, useChatStore } from '@/store'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
-import { PromptStore, SvgIcon } from '@/components/common'
-import { t } from '@/locales'
+import { PromptStore } from '@/components/common'
 
 const appStore = useAppStore()
 const chatStore = useChatStore()
 
-const dialog = useDialog()
+
 
 const { isMobile } = useBasicLayout()
 const show = ref(false)
@@ -20,7 +19,7 @@ const show = ref(false)
 const collapsed = computed(() => appStore.siderCollapsed)
 
 function handleAdd() {
-  chatStore.addHistory({ title: t('chat.newChatTitle'), uuid: Date.now(), isEdit: false })
+	chatStore.addHistory({ title: 'New Chat', uuid: Date.now(), isEdit: false })
   if (isMobile.value)
     appStore.setSiderCollapsed(true)
 }
@@ -29,19 +28,7 @@ function handleUpdateCollapsed() {
   appStore.setSiderCollapsed(!collapsed.value)
 }
 
-function handleClearAll() {
-  dialog.warning({
-    title: t('chat.deleteMessage'),
-    content: t('chat.clearHistoryConfirm'),
-    positiveText: t('common.yes'),
-    negativeText: t('common.no'),
-    onPositiveClick: () => {
-      chatStore.clearHistory()
-      if (isMobile.value)
-        appStore.setSiderCollapsed(true)
-    },
-  })
-}
+
 
 const getMobileClass = computed<CSSProperties>(() => {
   if (isMobile.value) {
