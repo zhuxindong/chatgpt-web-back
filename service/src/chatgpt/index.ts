@@ -54,7 +54,7 @@ let api: ChatGPTAPI | ChatGPTUnofficialProxyAPI
         options.maxResponseTokens = 8192
       }
       // if use GPT-4 Turbo
-      else if (model.toLowerCase().includes('1106-preview')) {
+      else if (/-preview|-turbo/.test(model.toLowerCase())) {
         options.maxModelTokens = 128000
         options.maxResponseTokens = 4096
       }
@@ -64,14 +64,19 @@ let api: ChatGPTAPI | ChatGPTUnofficialProxyAPI
       }
     }
     else if (model.toLowerCase().includes('gpt-3.5')) {
-      if (model.toLowerCase().includes('16k')) {
+      if (/16k|1106|0125/.test(model.toLowerCase())) {
         options.maxModelTokens = 16384
         options.maxResponseTokens = 4096
       }
     }
 
-    if (isNotEmptyString(OPENAI_API_BASE_URL))
-      options.apiBaseUrl = `${OPENAI_API_BASE_URL}/v1`
+    if (isNotEmptyString(OPENAI_API_BASE_URL)) {
+      // if find /v1 in OPENAI_API_BASE_URL then use it
+      if (OPENAI_API_BASE_URL.includes('/v1'))
+        options.apiBaseUrl = `${OPENAI_API_BASE_URL}`
+      else
+        options.apiBaseUrl = `${OPENAI_API_BASE_URL}/v1`
+    }
 
     setupProxy(options)
 
