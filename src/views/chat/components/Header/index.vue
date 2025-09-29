@@ -3,7 +3,7 @@ import { computed, nextTick, ref, onMounted, watch } from 'vue'
 import { NSelect } from 'naive-ui'
 import { HoverButton, SvgIcon } from '@/components/common'
 import { useAppStore, useChatStore } from '@/store'
-import { fetchModelList } from '@/api'
+import { fetchModelList, ModelListResponse } from '@/api'
 
 interface Props {
   usingContext: boolean

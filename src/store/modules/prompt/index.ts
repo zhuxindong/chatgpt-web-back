@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
-import type { PromptStore } from './helper'
+import type { PromptStore, PromptItem } from './helper'
 import { getLocalPromptList, setLocalPromptList } from './helper'
 
 export const usePromptStore = defineStore('prompt-store', {
   state: (): PromptStore => getLocalPromptList(),
 
   actions: {
-    updatePromptList(promptList: []) {
+    updatePromptList(promptList: PromptItem[]) {
       this.$patch({ promptList })
       setLocalPromptList({ promptList })
     },

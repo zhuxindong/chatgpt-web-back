@@ -74,8 +74,12 @@ export function fetchVerify<T>(token: string) {
   })
 }
 
-export function fetchModelList<T>() {
-  return post<T>({
+export interface ModelListResponse {
+  models: string[]
+}
+
+export function fetchModelList() {
+  return post<ModelListResponse>({
     url: '/models',
   })
 }

@@ -14,6 +14,7 @@ import { SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { useChatStore, usePromptStore } from '@/store'
 import { fetchChatAPIProcess, fetchChatConfig } from '@/api'
+import type { PromptItem } from '@/store/modules/prompt/helper'
 import { t } from '@/locales'
 
 let controller = new AbortController()
@@ -61,7 +62,7 @@ function handleModelChange(model: string) {
 }
 
 // 使用storeToRefs，保证store修改后，联想部分能够重新渲染
-const { promptList: promptTemplate } = storeToRefs<any>(promptStore)
+const { promptList: promptTemplate } = storeToRefs(promptStore)
 
 // 未知原因刷新页面，loading 状态不会重置，手动重置
 dataSources.value.forEach((item, index) => {
