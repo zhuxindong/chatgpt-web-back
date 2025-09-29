@@ -1,7 +1,9 @@
 <script setup lang='ts'>
 import { computed, ref } from 'vue'
 import { NDropdown, useMessage } from 'naive-ui'
+// @ts-ignore
 import AvatarComponent from './Avatar.vue'
+// @ts-ignore
 import TextComponent from './Text.vue'
 import { SvgIcon } from '@/components/common'
 import { useIconRender } from '@/hooks/useIconRender'
@@ -15,6 +17,7 @@ interface Props {
   inversion?: boolean
   error?: boolean
   loading?: boolean
+  model?: string
 }
 
 interface Emit {
@@ -139,6 +142,10 @@ async function handleCopy() {
             </button>
           </NDropdown>
         </div>
+      </div>
+      <!-- 显示模型信息 -->
+      <div v-if="!inversion && model" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        {{ `Model: ${model}` }}
       </div>
     </div>
   </div>

@@ -1,7 +1,7 @@
 import express from 'express'
 import type { RequestProps } from './types'
 import type { ChatMessage } from './chatgpt'
-import { chatConfig, chatReplyProcess, currentModel } from './chatgpt'
+import { chatConfig, chatReplyProcess, currentModel, models } from './chatgpt'
 import { auth } from './middleware/auth'
 import { limiter } from './middleware/limiter'
 import { isNotEmptyString } from './utils/is'
@@ -27,7 +27,7 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
   res.setTimeout(0) // 禁用响应超时
 
   try {
-    const { prompt, options = {}, systemMessage, temperature, top_p } = req.body as RequestProps
+    const { prompt, options = {}, systemMessage, temperature, top_p, selectedModel } = req.body as RequestProps
     await chatReplyProcess({
       message: prompt,
       lastContext: options,
@@ -37,6 +37,7 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
       systemMessage,
       temperature,
       top_p,
+      selectedModel,
     })
   }
   catch (error) {
@@ -54,6 +55,15 @@ router.post('/config', auth, async (req, res) => {
   }
   catch (error) {
     res.send(error)
+  }
+})
+
+router.post('/models', auth, async (req, res) => {
+  try {
+    res.send({ status: 'Success', message: '', data: { models } })
+  }
+  catch (error) {
+    res.send({ status: 'Fail', message: error.message, data: null })
   }
 })
 

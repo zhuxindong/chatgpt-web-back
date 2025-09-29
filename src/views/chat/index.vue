@@ -10,10 +10,10 @@ import { useScroll } from './hooks/useScroll'
 import { useChat } from './hooks/useChat'
 import { useUsingContext } from './hooks/useUsingContext'
 import HeaderComponent from './components/Header/index.vue'
-import { HoverButton, SvgIcon } from '@/components/common'
+import { SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { useChatStore, usePromptStore } from '@/store'
-import { fetchChatAPIProcess } from '@/api'
+import { fetchChatAPIProcess, fetchChatConfig } from '@/api'
 import { t } from '@/locales'
 
 let controller = new AbortController()
@@ -39,9 +39,26 @@ const conversationList = computed(() => dataSources.value.filter(item => (!item.
 const prompt = ref<string>('')
 const loading = ref<boolean>(false)
 const inputRef = ref<Ref | null>(null)
+const currentModel = ref<string>('')
 
 // 添加PromptStore
 const promptStore = usePromptStore()
+
+// 获取当前模型
+onMounted(async () => {
+  try {
+    const response = await fetchChatConfig()
+    if (response.data.model) {
+      currentModel.value = response.data.model
+    }
+  } catch (error) {
+    console.error('Failed to fetch chat config:', error)
+  }
+})
+
+function handleModelChange(model: string) {
+  currentModel.value = model
+}
 
 // 使用storeToRefs，保证store修改后，联想部分能够重新渲染
 const { promptList: promptTemplate } = storeToRefs<any>(promptStore)
@@ -123,6 +140,7 @@ async function onConversation() {
             const lines = newChunk.split('\n\n')
             let newText = ''
             let conversationData: { conversationId?: string; parentMessageId?: string; id?: string } = {}
+            let modelFromStream = ''
 
             lines.forEach((line: string) => {
               if (line.startsWith('data: ')) {
@@ -131,6 +149,8 @@ async function onConversation() {
                   try {
                     const data = JSON.parse(jsonStr)
                     newText += data.text ?? ''
+                    if (data.model)
+                      modelFromStream = data.model
                     conversationData = {
                       conversationId: data.conversationId,
                       parentMessageId: data.parentMessageId,
@@ -155,6 +175,7 @@ async function onConversation() {
                   ...currentChat,
                   text: `${updatedText}▌`,
                   conversationOptions: conversationData.id ? { conversationId: conversationData.conversationId, parentMessageId: conversationData.id } : null,
+                  model: modelFromStream || currentModel.value,
                 },
               )
               console.log('Updated chat with conversationOptions:', JSON.stringify(conversationData))
@@ -165,7 +186,7 @@ async function onConversation() {
             //
           }
         },
-      })
+      }, currentModel.value)
       const currentChat = getChatByUuidAndIndex(+uuid, dataSources.value.length - 1)
       if (currentChat) {
         const updatedText = currentChat.text.replace(/▌$/, '')
@@ -306,7 +327,7 @@ async function onRegenerate(index: number) {
             //
           }
         },
-      })
+      }, currentModel.value)
       updateChatSome(+uuid, index, { loading: false })
     }
     await fetchChatAPIOnce()
@@ -492,10 +513,11 @@ onUnmounted(() => {
 <template>
   <div class="flex flex-col w-full h-full">
     <HeaderComponent
-      v-if="isMobile"
       :using-context="usingContext"
+      :current-model="currentModel"
       @export="handleExport"
       @handle-clear="handleClear"
+      @update:model="handleModelChange"
     />
     <main class="flex-1 overflow-hidden">
       <div id="scrollRef" ref="scrollRef" class="h-full overflow-hidden overflow-y-auto">
@@ -520,6 +542,7 @@ onUnmounted(() => {
                   :inversion="item.inversion"
                   :error="item.error"
                   :loading="item.loading"
+                  :model="item.model"
                   @regenerate="onRegenerate(index)"
                   @delete="handleDelete(index)"
                 />

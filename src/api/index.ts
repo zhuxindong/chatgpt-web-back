@@ -26,6 +26,7 @@ export function fetchChatAPIProcess<T = any>(
     options?: { conversationId?: string; parentMessageId?: string }
     signal?: GenericAbortSignal
     onDownloadProgress?: (progressEvent: AxiosProgressEvent) => void },
+  selectedModel?: string
 ) {
   const settingStore = useSettingStore()
   const authStore = useAuthStore()
@@ -41,6 +42,14 @@ export function fetchChatAPIProcess<T = any>(
       systemMessage: settingStore.systemMessage,
       temperature: settingStore.temperature,
       top_p: settingStore.top_p,
+    }
+  }
+
+  // 添加选定的模型
+  if (selectedModel) {
+    data = {
+      ...data,
+      selectedModel
     }
   }
 
@@ -62,5 +71,11 @@ export function fetchVerify<T>(token: string) {
   return post<T>({
     url: '/verify',
     data: { token },
+  })
+}
+
+export function fetchModelList<T>() {
+  return post<T>({
+    url: '/models',
   })
 }

@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv'
 import 'isomorphic-fetch'
-import type { ChatGPTAPIOptions, ChatMessage, SendMessageOptions } from 'chatgpt'
+import type { ChatGPTAPIOptions, ChatMessage } from 'chatgpt'
 import { ChatGPTAPI, ChatGPTUnofficialProxyAPI } from 'chatgpt'
 import { SocksProxyAgent } from 'socks-proxy-agent'
 import httpsProxyAgent from 'https-proxy-agent'
@@ -8,7 +8,7 @@ import fetch from 'node-fetch'
 import { sendResponse } from '../utils'
 import { isNotEmptyString } from '../utils/is'
 import type { ApiModel, ChatContext, ChatGPTUnofficialProxyAPIOptions, ModelConfig } from '../types'
-import type { RequestOptions, SetProxyOptions, UsageResponse } from './types'
+import type { ExtendedChatMessage, RequestOptions, SetProxyOptions, UsageResponse } from './types'
 
 const { HttpsProxyAgent } = httpsProxyAgent
 
@@ -27,7 +27,11 @@ const timeoutMs: number = !isNaN(+process.env.TIMEOUT_MS) ? +process.env.TIMEOUT
 const disableDebug: boolean = process.env.OPENAI_API_DISABLE_DEBUG === 'true'
 
 let apiModel: ApiModel
-const model = isNotEmptyString(process.env.OPENAI_API_MODEL) ? process.env.OPENAI_API_MODEL : 'gpt-3.5-turbo'
+// 支持多个模型，用逗号分隔
+const models = isNotEmptyString(process.env.OPENAI_API_MODEL)
+  ? process.env.OPENAI_API_MODEL.split(',').map(m => m.trim())
+  : ['gpt-3.5-turbo']
+const model = models[0] // 默认使用第一个模型
 
 if (!isNotEmptyString(process.env.OPENAI_API_KEY) && !isNotEmptyString(process.env.OPENAI_ACCESS_TOKEN))
   throw new Error('Missing OPENAI_API_KEY or OPENAI_ACCESS_TOKEN environment variable')
@@ -107,16 +111,20 @@ let api: ChatGPTAPI | ChatGPTUnofficialProxyAPI
 })()
 
 async function chatReplyProcess(requestOptions: RequestOptions) {
-  const { message, lastContext, process: callback, systemMessage, temperature, top_p } = requestOptions
+  const { message, lastContext, process: callback, systemMessage, temperature, top_p, selectedModel } = requestOptions
   try {
     const OPENAI_API_BASE_URL = process.env.OPENAI_API_BASE_URL
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+
+    // 使用传入的模型或默认模型
+    const modelToUse = (selectedModel && models.includes(selectedModel)) ? selectedModel : model
 
     const messages = []
     if (isNotEmptyString(systemMessage))
       messages.push({ role: 'system', content: systemMessage })
 
-    if (lastContext?.history) {
+    // 修复类型问题
+    if (lastContext && 'history' in lastContext && Array.isArray(lastContext.history)) {
       lastContext.history.forEach((chat) => {
         if (chat.inversion)
           messages.push({ role: 'user', content: chat.text })
@@ -128,14 +136,15 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
     messages.push({ role: 'user', content: message })
 
     const requestBody = {
-      model: model,
-      messages: messages,
-      temperature: temperature,
-      top_p: top_p,
+      model: modelToUse,
+      messages,
+      temperature,
+      top_p,
       stream: true,
     }
 
-    console.log('Sending request to API with body:', JSON.stringify(requestBody, null, 2))
+    // 移除console.log以避免ESLint错误
+    // console.log('Sending request to API with body:', JSON.stringify(requestBody, null, 2))
 
     const response = await fetch(`${OPENAI_API_BASE_URL}/chat/completions`, {
       method: 'POST',
@@ -154,7 +163,7 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
       return sendResponse({ type: 'Fail', message: errorData.error.message ?? 'Please check the back-end console' })
     }
 
-    // @ts-ignore
+    // @ts-expect-error: response.body is a ReadableStream
     await new Promise((resolve, reject) => {
       response.body.on('data', (chunk) => {
         try {
@@ -168,12 +177,13 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
               }
               try {
                 const data = JSON.parse(jsonStr)
-                const chatMessage: ChatMessage = {
+                const chatMessage: ExtendedChatMessage = {
                   id: data.id,
                   text: data.choices[0].delta.content || '',
                   role: 'assistant',
                   conversationId: lastContext?.conversationId ?? data.id,
                   parentMessageId: lastContext?.parentMessageId,
+                  model: modelToUse, // 添加模型信息
                 }
                 callback?.(chatMessage)
               }
@@ -226,17 +236,23 @@ async function fetchUsage() {
 
   setupProxy(options)
 
+  // 确保options.fetch被正确设置
+  if (!options.fetch)
+    options.fetch = fetch
+
   try {
     // 获取已使用量
     const useResponse = await options.fetch(urlUsage, { headers })
-    if (!useResponse.ok)
-      throw new Error('获取使用量失败')
+    if (!useResponse.ok) {
+      global.console.log('获取使用量失败:', useResponse.statusText)
+      return Promise.resolve('-')
+    }
     const usageData = await useResponse.json() as UsageResponse
     const usage = Math.round(usageData.total_usage) / 100
     return Promise.resolve(usage ? `$${usage}` : '-')
   }
   catch (error) {
-    global.console.log(error)
+    global.console.log('获取使用量异常:', error)
     return Promise.resolve('-')
   }
 }
@@ -260,7 +276,7 @@ async function chatConfig() {
     : '-'
   return sendResponse<ModelConfig>({
     type: 'Success',
-    data: { apiModel, reverseProxy, timeoutMs, socksProxy, httpsProxy, usage },
+    data: { apiModel, reverseProxy, timeoutMs, socksProxy, httpsProxy, usage, models },
   })
 }
 
@@ -296,6 +312,8 @@ function currentModel(): ApiModel {
   return apiModel
 }
 
-export type { ChatContext, ChatMessage }
+export type { ChatContext, ChatMessage, ExtendedChatMessage }
 
 export { chatReplyProcess, chatConfig, currentModel }
+
+export { models }
