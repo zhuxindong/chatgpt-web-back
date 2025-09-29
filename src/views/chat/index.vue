@@ -2,7 +2,6 @@
 import type { Ref } from 'vue'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { storeToRefs } from 'pinia'
 import { NAutoComplete, NButton, NInput, useDialog, useMessage } from 'naive-ui'
 import { toPng } from 'html-to-image'
 import { Message } from './components'
@@ -14,7 +13,6 @@ import { SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { useChatStore, usePromptStore } from '@/store'
 import { fetchChatAPIProcess, fetchChatConfig } from '@/api'
-import type { PromptItem } from '@/store/modules/prompt/helper'
 import { t } from '@/locales'
 
 let controller = new AbortController()
@@ -62,7 +60,7 @@ function handleModelChange(model: string) {
 }
 
 // 使用storeToRefs，保证store修改后，联想部分能够重新渲染
-const { promptList: promptTemplate } = storeToRefs(promptStore)
+const promptTemplate = computed(() => promptStore.promptList)
 
 // 未知原因刷新页面，loading 状态不会重置，手动重置
 dataSources.value.forEach((item, index) => {
