@@ -9,6 +9,7 @@ declare namespace Chat {
 		conversationOptions?: ConversationRequest | null
 		requestOptions: { prompt: string; options?: ConversationRequest | null }
 		model?: string
+		thinking?: string
 		conversationId?: string
 		parentMessageId?: string
 		usage?: {

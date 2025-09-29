@@ -137,9 +137,6 @@ async function onConversation() {
 
           try {
             const lines = newChunk.split('\n\n')
-            let thinkingContent = ''
-            let regularContent = ''
-
             lines.forEach((line: string) => {
               if (line.startsWith('data: ')) {
                 const jsonStr = line.substring(6)
@@ -147,50 +144,41 @@ async function onConversation() {
                   return
 
                 try {
-                  const data = JSON.parse(jsonStr)
-                  if (data.reasoning)
-                    thinkingContent += data.reasoning
-                  if (data.text)
-                    regularContent += data.text
+                  const data = JSON.parse(jsonStr) // this is the parsed chunk from backend { id, text, reasoning, ... }
+                  const lastIndex = dataSources.value.length - 1
+                  const currentChat = getChatByUuidAndIndex(+uuid, lastIndex)
+
+                  if (currentChat) {
+                    const updates: Partial<Chat.Chat> = {}
+                    // Clear "Thinking..." placeholder on first chunk
+                    if (currentChat.text === t('chat.thinking'))
+                      updates.text = ''
+
+                    if (data.reasoning)
+                      updates.thinking = (currentChat.thinking || '') + data.reasoning
+
+                    if (data.text)
+                      updates.text = (updates.text ?? currentChat.text) + data.text
+
+                    if (Object.keys(updates).length > 0)
+                      updateChatSome(+uuid, lastIndex, updates)
+                  }
                 }
                 catch (e) {
                   // ignore parse error
                 }
               }
             })
-
-            let textToAppend = ''
-            if (thinkingContent)
-              textToAppend += `<details><summary>Thinking...</summary>\n\n${thinkingContent}\n\n</details>\n`
-
-            textToAppend += regularContent
-
-            if (textToAppend) {
-              const lastIndex = dataSources.value.length - 1
-              const currentChat = getChatByUuidAndIndex(+uuid, lastIndex)
-              // Clear "Thinking..." placeholder on first chunk
-              if (currentChat && currentChat.text === t('chat.thinking'))
-                updateChatSome(+uuid, lastIndex, { text: '' })
-
-              appendText(+uuid, lastIndex, textToAppend)
-              scrollToBottomIfAtBottom()
-            }
+            scrollToBottomIfAtBottom()
           }
           catch (error) {
             //
           }
         },
       }, currentModel.value)
-      // Clean up final message
       const lastIndex = dataSources.value.length - 1
-      const lastMessage = getChatByUuidAndIndex(+uuid, lastIndex)
-      if (lastMessage && lastMessage.text.includes('<details>')) {
-        const cleanedText = lastMessage.text.replace(/<details>.*?<\/details>\n*/, '')
-        updateChatSome(+uuid, lastIndex, { text: cleanedText, loading: false })
-      }
-      else {
+      if (getChatByUuidAndIndex(+uuid, lastIndex))
         updateChatSome(+uuid, lastIndex, { loading: false })
-      }
     }
 
     await fetchChatAPIOnce()
@@ -530,6 +518,7 @@ onUnmounted(() => {
                   :key="index"
                   :date-time="item.dateTime"
                   :text="item.text"
+                  :thinking="item.thinking"
                   :inversion="item.inversion"
                   :error="item.error"
                   :loading="item.loading"

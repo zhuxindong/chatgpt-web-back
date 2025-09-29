@@ -5,6 +5,8 @@ import { NDropdown, useMessage } from 'naive-ui'
 import AvatarComponent from './Avatar.vue'
 // @ts-ignore
 import TextComponent from './Text.vue'
+// @ts-ignore
+import ThinkingComponent from './Thinking.vue'
 import { SvgIcon } from '@/components/common'
 import { useIconRender } from '@/hooks/useIconRender'
 import { t } from '@/locales'
@@ -18,6 +20,7 @@ interface Props {
   error?: boolean
   loading?: boolean
   model?: string
+  thinking?: string
   uuid?: number
   index?: number
 }
@@ -109,45 +112,52 @@ async function handleCopy() {
     >
       <AvatarComponent :image="inversion" />
     </div>
-    <div class="overflow-hidden text-sm " :class="[inversion ? 'items-end' : 'items-start']">
+    <div class="overflow-hidden text-sm" :class="[inversion ? 'items-end' : 'items-start']">
       <p class="text-xs text-[#b4bbc4]" :class="[inversion ? 'text-right' : 'text-left']">
         {{ dateTime }}
       </p>
-      <div
-        class="flex items-end gap-1 mt-2"
-        :class="[inversion ? 'flex-row-reverse' : 'flex-row']"
-      >
-        <TextComponent
-          ref="textRef"
-          :inversion="inversion"
-          :error="error"
-          :text="text"
-          :loading="loading"
-          :as-raw-text="asRawText"
-          :uuid="uuid"
-          :index="index"
+      <div class="flex flex-col mt-2">
+        <ThinkingComponent
+          v-if="thinking"
+          :thinking="thinking"
         />
-        <div class="flex flex-col">
-          <button
-            v-if="!inversion"
-            class="mb-2 transition text-neutral-300 hover:text-neutral-800 dark:hover:text-neutral-300"
-            @click="handleRegenerate"
-          >
-            <SvgIcon icon="ri:restart-line" />
-          </button>
-          <NDropdown
-            :trigger="isMobile ? 'click' : 'hover'"
-            :placement="!inversion ? 'right' : 'left'"
-            :options="options"
-            @select="handleSelect"
-          >
-            <button class="transition text-neutral-300 hover:text-neutral-800 dark:hover:text-neutral-200">
-              <SvgIcon icon="ri:more-2-fill" />
+        <div
+          class="flex items-end gap-1"
+          :class="[inversion ? 'flex-row-reverse' : 'flex-row']"
+        >
+          <TextComponent
+            v-if="text"
+            ref="textRef"
+            :inversion="inversion"
+            :error="error"
+            :text="text"
+            :loading="loading"
+            :as-raw-text="asRawText"
+            :uuid="uuid"
+            :index="index"
+          />
+          <div class="flex flex-col">
+            <button
+              v-if="!inversion"
+              class="mb-2 transition text-neutral-300 hover:text-neutral-800 dark:hover:text-neutral-300"
+              @click="handleRegenerate"
+            >
+              <SvgIcon icon="ri:restart-line" />
             </button>
-          </NDropdown>
+            <NDropdown
+              :trigger="isMobile ? 'click' : 'hover'"
+              :placement="!inversion ? 'right' : 'left'"
+              :options="options"
+              @select="handleSelect"
+            >
+              <button class="transition text-neutral-300 hover:text-neutral-800 dark:hover:text-neutral-200">
+                <SvgIcon icon="ri:more-2-fill" />
+              </button>
+            </NDropdown>
+          </div>
         </div>
       </div>
-      <!-- 显示模型信息 -->
+      <!-- Display model info -->
       <div v-if="!inversion && model" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
         {{ `Model: ${model}` }}
       </div>
