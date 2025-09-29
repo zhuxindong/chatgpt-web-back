@@ -141,10 +141,14 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
       temperature,
       top_p,
       stream: true,
+      google: {
+        thinking_config: {
+          include_thoughts: true,
+        },
+      },
     }
 
-    // 移除console.log以避免ESLint错误
-    // console.log('Sending request to API with body:', JSON.stringify(requestBody, null, 2))
+    console.log('Sending request to API with body:', JSON.stringify(requestBody, null, 2))
 
     const response = await fetch(`${OPENAI_API_BASE_URL}/chat/completions`, {
       method: 'POST',
@@ -163,47 +167,41 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
       return sendResponse({ type: 'Fail', message: errorData.error.message ?? 'Please check the back-end console' })
     }
 
-    // @ts-expect-error: response.body is a ReadableStream
-    await new Promise((resolve, reject) => {
-      response.body.on('data', (chunk) => {
-        try {
-          const lines = chunk.toString().split('\n\n')
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const jsonStr = line.substring(6)
-              if (jsonStr.trim() === '[DONE]') {
-                resolve(null)
-                return
+    for await (const chunk of response.body as any) {
+      try {
+        const chunkStr = chunk.toString()
+        console.log('Received chunk from API:', chunkStr) // Log the raw chunk
+        const lines = chunkStr.split('\n\n')
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.substring(6)
+            if (jsonStr.trim() === '[DONE]')
+              return
+
+            try {
+              const data = JSON.parse(jsonStr)
+              const delta = data.choices[0].delta
+              const chatMessage: ExtendedChatMessage = {
+                id: data.id,
+                text: delta.content || '',
+                reasoning: delta.reasoning_content || '',
+                role: 'assistant',
+                conversationId: lastContext?.conversationId ?? data.id,
+                parentMessageId: lastContext?.parentMessageId,
+                model: modelToUse, // 添加模型信息
               }
-              try {
-                const data = JSON.parse(jsonStr)
-                const chatMessage: ExtendedChatMessage = {
-                  id: data.id,
-                  text: data.choices[0].delta.content || '',
-                  role: 'assistant',
-                  conversationId: lastContext?.conversationId ?? data.id,
-                  parentMessageId: lastContext?.parentMessageId,
-                  model: modelToUse, // 添加模型信息
-                }
-                callback?.(chatMessage)
-              }
-              catch (error) {
-                // Skips noisy errors from the stream ending
-              }
+              callback?.(chatMessage)
+            }
+            catch (error) {
+              // Skips noisy errors from the stream ending
             }
           }
         }
-        catch (error) {
-          reject(error)
-        }
-      })
-      response.body.on('end', () => {
-        resolve(null)
-      })
-      response.body.on('error', (err) => {
-        reject(err)
-      })
-    })
+      }
+      catch (error) {
+        global.console.log(error)
+      }
+    }
   }
   catch (error: any) {
     global.console.log(error)

@@ -9,6 +9,13 @@ declare namespace Chat {
 		conversationOptions?: ConversationRequest | null
 		requestOptions: { prompt: string; options?: ConversationRequest | null }
 		model?: string
+		conversationId?: string
+		parentMessageId?: string
+		usage?: {
+			completion_tokens: number
+			prompt_tokens: number
+			total_tokens: number
+		}
 	}
 
 	interface History {

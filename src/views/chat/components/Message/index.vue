@@ -18,6 +18,8 @@ interface Props {
   error?: boolean
   loading?: boolean
   model?: string
+  uuid?: number
+  index?: number
 }
 
 interface Emit {
@@ -122,6 +124,8 @@ async function handleCopy() {
           :text="text"
           :loading="loading"
           :as-raw-text="asRawText"
+          :uuid="uuid"
+          :index="index"
         />
         <div class="flex flex-col">
           <button

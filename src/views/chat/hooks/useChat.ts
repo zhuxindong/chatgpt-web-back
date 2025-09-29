@@ -19,10 +19,20 @@ export function useChat() {
     chatStore.updateChatSomeByUuid(uuid, index, chat)
   }
 
+  // Method to append text to the last message
+  const appendText = (uuid: number, index: number, text: string) => {
+    const existingChat = chatStore.getChatByUuidAndIndex(uuid, index)
+    if (existingChat) {
+      const updatedText = existingChat.text + text
+      chatStore.updateChatSomeByUuid(uuid, index, { text: updatedText })
+    }
+  }
+
   return {
     addChat,
     updateChat,
     updateChatSome,
     getChatByUuidAndIndex,
+    appendText, // Expose the new method
   }
 }

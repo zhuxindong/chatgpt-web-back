@@ -15,6 +15,8 @@ interface Props {
   text?: string
   loading?: boolean
   asRawText?: boolean
+  uuid?: number // Add uuid to identify the chat
+  index?: number // Add index to identify the message
 }
 
 const props = defineProps<Props>()
@@ -51,10 +53,28 @@ const wrapClass = computed(() => {
   ]
 })
 
+import { useChatStore } from '@/store' // Import the chat store
+
+const chatStore = useChatStore()
+
 const text = computed(() => {
+  // Ensure both uuid and index are provided before accessing the store
+  if (typeof props.uuid === 'number' && typeof props.index === 'number') {
+    const chatHistory = chatStore.getChatByUuid(props.uuid)
+    if (chatHistory && chatHistory.length > props.index) {
+      const message = chatHistory[props.index]
+      const value = message?.text ?? props.text ?? ''
+      if (!props.asRawText) {
+        const escapedText = escapeBrackets(escapeDollarNumber(value))
+        return mdi.render(escapedText)
+      }
+      return value
+    }
+  }
+
+  // Fallback to the original logic if uuid or index are not available
   const value = props.text ?? ''
   if (!props.asRawText) {
-    // 对数学公式进行处理，自动添加 $$ 符号
     const escapedText = escapeBrackets(escapeDollarNumber(value))
     return mdi.render(escapedText)
   }

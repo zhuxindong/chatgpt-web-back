@@ -8,7 +8,7 @@ import { Message } from './components'
 import { useScroll } from './hooks/useScroll'
 import { useChat } from './hooks/useChat'
 import { useUsingContext } from './hooks/useUsingContext'
-import HeaderComponent from './components/Header/index.vue'
+import { HeaderComponent } from './components'
 import { SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { useChatStore, usePromptStore } from '@/store'
@@ -26,7 +26,7 @@ const ms = useMessage()
 const chatStore = useChatStore()
 
 const { isMobile } = useBasicLayout()
-const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex } = useChat()
+const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex, appendText } = useChat()
 const { scrollRef, scrollToBottom, scrollToBottomIfAtBottom } = useScroll()
 const { usingContext, toggleUsingContext } = useUsingContext()
 
@@ -137,47 +137,42 @@ async function onConversation() {
 
           try {
             const lines = newChunk.split('\n\n')
-            let newText = ''
-            let conversationData: { conversationId?: string; parentMessageId?: string; id?: string } = {}
-            let modelFromStream = ''
+            let thinkingContent = ''
+            let regularContent = ''
 
             lines.forEach((line: string) => {
               if (line.startsWith('data: ')) {
                 const jsonStr = line.substring(6)
-                if (jsonStr) {
-                  try {
-                    const data = JSON.parse(jsonStr)
-                    newText += data.text ?? ''
-                    if (data.model)
-                      modelFromStream = data.model
-                    conversationData = {
-                      conversationId: data.conversationId,
-                      parentMessageId: data.parentMessageId,
-                      id: data.id,
-                    }
-                  }
-                  catch (error) {
-                    console.error('Error parsing SSE JSON:', error)
-                  }
+                if (jsonStr.trim() === '[DONE]')
+                  return
+
+                try {
+                  const data = JSON.parse(jsonStr)
+                  if (data.reasoning)
+                    thinkingContent += data.reasoning
+                  if (data.text)
+                    regularContent += data.text
+                }
+                catch (e) {
+                  // ignore parse error
                 }
               }
             })
 
-            const currentChat = getChatByUuidAndIndex(+uuid, dataSources.value.length - 1)
+            let textToAppend = ''
+            if (thinkingContent)
+              textToAppend += `<details><summary>Thinking...</summary>\n\n${thinkingContent}\n\n</details>\n`
 
-            if (currentChat) {
-              const updatedText = currentChat.text.replace(/▌$/, '') + newText
-              updateChat(
-                +uuid,
-                dataSources.value.length - 1,
-                {
-                  ...currentChat,
-                  text: `${updatedText}▌`,
-                  conversationOptions: conversationData.id ? { conversationId: conversationData.conversationId, parentMessageId: conversationData.id } : null,
-                  model: modelFromStream || currentModel.value,
-                },
-              )
-              console.log('Updated chat with conversationOptions:', JSON.stringify(conversationData))
+            textToAppend += regularContent
+
+            if (textToAppend) {
+              const lastIndex = dataSources.value.length - 1
+              const currentChat = getChatByUuidAndIndex(+uuid, lastIndex)
+              // Clear "Thinking..." placeholder on first chunk
+              if (currentChat && currentChat.text === t('chat.thinking'))
+                updateChatSome(+uuid, lastIndex, { text: '' })
+
+              appendText(+uuid, lastIndex, textToAppend)
               scrollToBottomIfAtBottom()
             }
           }
@@ -186,19 +181,16 @@ async function onConversation() {
           }
         },
       }, currentModel.value)
-      const currentChat = getChatByUuidAndIndex(+uuid, dataSources.value.length - 1)
-      if (currentChat) {
-        const updatedText = currentChat.text.replace(/▌$/, '')
-        updateChat(
-          +uuid,
-          dataSources.value.length - 1,
-          {
-            ...currentChat,
-            text: updatedText,
-          },
-        )
+      // Clean up final message
+      const lastIndex = dataSources.value.length - 1
+      const lastMessage = getChatByUuidAndIndex(+uuid, lastIndex)
+      if (lastMessage && lastMessage.text.includes('<details>')) {
+        const cleanedText = lastMessage.text.replace(/<details>.*?<\/details>\n*/, '')
+        updateChatSome(+uuid, lastIndex, { text: cleanedText, loading: false })
       }
-      updateChatSome(+uuid, dataSources.value.length - 1, { loading: false })
+      else {
+        updateChatSome(+uuid, lastIndex, { loading: false })
+      }
     }
 
     await fetchChatAPIOnce()
@@ -542,6 +534,8 @@ onUnmounted(() => {
                   :error="item.error"
                   :loading="item.loading"
                   :model="item.model"
+                  :uuid="Number(uuid)"
+                  :index="index"
                   @regenerate="onRegenerate(index)"
                   @delete="handleDelete(index)"
                 />
