@@ -20,17 +20,19 @@ app.all('*', (_, res, next) => {
 })
 
 router.post('/chat-process', [auth, limiter], async (req, res) => {
-  res.setHeader('Content-type', 'application/octet-stream')
+  res.setHeader('Content-type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  req.setTimeout(0) // 禁用请求超时
+  res.setTimeout(0) // 禁用响应超时
 
   try {
     const { prompt, options = {}, systemMessage, temperature, top_p } = req.body as RequestProps
-    let firstChunk = true
     await chatReplyProcess({
       message: prompt,
       lastContext: options,
       process: (chat: ChatMessage) => {
-        res.write(firstChunk ? JSON.stringify(chat) : `\n${JSON.stringify(chat)}`)
-        firstChunk = false
+        res.write(`data: ${JSON.stringify(chat)}\n\n`)
       },
       systemMessage,
       temperature,

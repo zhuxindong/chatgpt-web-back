@@ -72,10 +72,11 @@ let api: ChatGPTAPI | ChatGPTUnofficialProxyAPI
         options.maxModelTokens = 16384
         options.maxResponseTokens = 4096
       }
-    } else{
-			options.maxModelTokens = 256000
+    }
+    else {
+      options.maxModelTokens = 256000
       options.maxResponseTokens = 256000
-		}
+    }
 
     if (isNotEmptyString(OPENAI_API_BASE_URL)) {
       // if find /v1 in OPENAI_API_BASE_URL then use it
@@ -85,7 +86,7 @@ let api: ChatGPTAPI | ChatGPTUnofficialProxyAPI
         options.apiBaseUrl = `${OPENAI_API_BASE_URL}/v1`
     }
 
-    setupProxy(options)
+    setupProxy(options as any)
 
     api = new ChatGPTAPI({ ...options })
     apiModel = 'ChatGPTAPI'
@@ -98,45 +99,104 @@ let api: ChatGPTAPI | ChatGPTUnofficialProxyAPI
       debug: !disableDebug,
     }
 
-    setupProxy(options)
+    setupProxy(options as any)
 
     api = new ChatGPTUnofficialProxyAPI({ ...options })
     apiModel = 'ChatGPTUnofficialProxyAPI'
   }
 })()
 
-async function chatReplyProcess(options: RequestOptions) {
-  const { message, lastContext, process, systemMessage, temperature, top_p } = options
+async function chatReplyProcess(requestOptions: RequestOptions) {
+  const { message, lastContext, process: callback, systemMessage, temperature, top_p } = requestOptions
   try {
-    let options: SendMessageOptions = { timeoutMs }
+    const OPENAI_API_BASE_URL = process.env.OPENAI_API_BASE_URL
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 
-    if (apiModel === 'ChatGPTAPI') {
-      if (isNotEmptyString(systemMessage))
-        options.systemMessage = systemMessage
-      options.completionParams = { model, temperature, top_p }
+    const messages = []
+    if (isNotEmptyString(systemMessage))
+      messages.push({ role: 'system', content: systemMessage })
+
+    if (lastContext?.history) {
+      lastContext.history.forEach((chat) => {
+        if (chat.inversion)
+          messages.push({ role: 'user', content: chat.text })
+        else
+          messages.push({ role: 'assistant', content: chat.text })
+      })
     }
 
-    if (lastContext != null) {
-      if (apiModel === 'ChatGPTAPI')
-        options.parentMessageId = lastContext.parentMessageId
-      else
-        options = { ...lastContext }
+    messages.push({ role: 'user', content: message })
+
+    const requestBody = {
+      model: model,
+      messages: messages,
+      temperature: temperature,
+      top_p: top_p,
+      stream: true,
     }
 
-    const response = await api.sendMessage(message, {
-      ...options,
-      onProgress: (partialResponse) => {
-        process?.(partialResponse)
+    console.log('Sending request to API with body:', JSON.stringify(requestBody, null, 2))
+
+    const response = await fetch(`${OPENAI_API_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
+      body: JSON.stringify(requestBody),
     })
 
-    return sendResponse({ type: 'Success', data: response })
+    if (response.status !== 200) {
+      const errorData = await response.json() as { error: { message: string } }
+      const code = response.status
+      if (Reflect.has(ErrorCodeMessage, code))
+        return sendResponse({ type: 'Fail', message: ErrorCodeMessage[code] })
+      return sendResponse({ type: 'Fail', message: errorData.error.message ?? 'Please check the back-end console' })
+    }
+
+    // @ts-ignore
+    await new Promise((resolve, reject) => {
+      response.body.on('data', (chunk) => {
+        try {
+          const lines = chunk.toString().split('\n\n')
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const jsonStr = line.substring(6)
+              if (jsonStr.trim() === '[DONE]') {
+                resolve(null)
+                return
+              }
+              try {
+                const data = JSON.parse(jsonStr)
+                const chatMessage: ChatMessage = {
+                  id: data.id,
+                  text: data.choices[0].delta.content || '',
+                  role: 'assistant',
+                  conversationId: lastContext?.conversationId ?? data.id,
+                  parentMessageId: lastContext?.parentMessageId,
+                }
+                callback?.(chatMessage)
+              }
+              catch (error) {
+                // Skips noisy errors from the stream ending
+              }
+            }
+          }
+        }
+        catch (error) {
+          reject(error)
+        }
+      })
+      response.body.on('end', () => {
+        resolve(null)
+      })
+      response.body.on('error', (err) => {
+        reject(err)
+      })
+    })
   }
   catch (error: any) {
-    const code = error.statusCode
     global.console.log(error)
-    if (Reflect.has(ErrorCodeMessage, code))
-      return sendResponse({ type: 'Fail', message: ErrorCodeMessage[code] })
     return sendResponse({ type: 'Fail', message: error.message ?? 'Please check the back-end console' })
   }
 }

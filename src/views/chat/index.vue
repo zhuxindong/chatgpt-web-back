@@ -83,11 +83,14 @@ async function onConversation() {
   loading.value = true
   prompt.value = ''
 
-  let options: Chat.ConversationRequest = {}
+  let options: Chat.ConversationRequest & { history?: Chat.Chat[] } = {}
   const lastContext = conversationList.value[conversationList.value.length - 1]?.conversationOptions
 
-  if (lastContext && usingContext.value)
+  if (lastContext && usingContext.value) {
     options = { ...lastContext }
+    options.history = dataSources.value.slice(0, -1)
+  }
+  console.log('Sending request with options:', JSON.stringify(options))
 
   addChat(
     +uuid,
@@ -104,7 +107,7 @@ async function onConversation() {
   scrollToBottom()
 
   try {
-    let lastText = ''
+    let processedLength = 0
     const fetchChatAPIOnce = async () => {
       await fetchChatAPIProcess<Chat.ConversationResponse>({
         prompt: message,
@@ -113,41 +116,68 @@ async function onConversation() {
         onDownloadProgress: ({ event }) => {
           const xhr = event.target
           const { responseText } = xhr
-          // Always process the final line
-          const lastIndex = responseText.lastIndexOf('\n', responseText.length - 2)
-          let chunk = responseText
-          if (lastIndex !== -1)
-            chunk = responseText.substring(lastIndex)
+          const newChunk = responseText.substring(processedLength)
+          processedLength = responseText.length
+
           try {
-            const data = JSON.parse(chunk)
-            updateChat(
-              +uuid,
-              dataSources.value.length - 1,
-              {
-                dateTime: new Date().toLocaleString(),
-                text: lastText + (data.text ?? ''),
-                inversion: false,
-                error: false,
-                loading: true,
-                conversationOptions: { conversationId: data.conversationId, parentMessageId: data.id },
-                requestOptions: { prompt: message, options: { ...options } },
-              },
-            )
+            const lines = newChunk.split('\n\n')
+            let newText = ''
+            let conversationData: { conversationId?: string; parentMessageId?: string; id?: string } = {}
 
-            if (openLongReply && data.detail.choices[0].finish_reason === 'length') {
-              options.parentMessageId = data.id
-              lastText = data.text
-              message = ''
-              return fetchChatAPIOnce()
+            lines.forEach((line: string) => {
+              if (line.startsWith('data: ')) {
+                const jsonStr = line.substring(6)
+                if (jsonStr) {
+                  try {
+                    const data = JSON.parse(jsonStr)
+                    newText += data.text ?? ''
+                    conversationData = {
+                      conversationId: data.conversationId,
+                      parentMessageId: data.parentMessageId,
+                      id: data.id,
+                    }
+                  }
+                  catch (error) {
+                    console.error('Error parsing SSE JSON:', error)
+                  }
+                }
+              }
+            })
+
+            const currentChat = getChatByUuidAndIndex(+uuid, dataSources.value.length - 1)
+
+            if (currentChat) {
+              const updatedText = currentChat.text.replace(/▌$/, '') + newText
+              updateChat(
+                +uuid,
+                dataSources.value.length - 1,
+                {
+                  ...currentChat,
+                  text: `${updatedText}▌`,
+                  conversationOptions: conversationData.id ? { conversationId: conversationData.conversationId, parentMessageId: conversationData.id } : null,
+                },
+              )
+              console.log('Updated chat with conversationOptions:', JSON.stringify(conversationData))
+              scrollToBottomIfAtBottom()
             }
-
-            scrollToBottomIfAtBottom()
           }
           catch (error) {
             //
           }
         },
       })
+      const currentChat = getChatByUuidAndIndex(+uuid, dataSources.value.length - 1)
+      if (currentChat) {
+        const updatedText = currentChat.text.replace(/▌$/, '')
+        updateChat(
+          +uuid,
+          dataSources.value.length - 1,
+          {
+            ...currentChat,
+            text: updatedText,
+          },
+        )
+      }
       updateChatSome(+uuid, dataSources.value.length - 1, { loading: false })
     }
 

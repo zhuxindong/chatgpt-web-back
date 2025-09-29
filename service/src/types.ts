@@ -11,6 +11,10 @@ export interface RequestProps {
 export interface ChatContext {
   conversationId?: string
   parentMessageId?: string
+  history?: {
+    text: string
+    inversion: boolean
+  }[]
 }
 
 export interface ChatGPTUnofficialProxyAPIOptions {
