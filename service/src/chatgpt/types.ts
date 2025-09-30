@@ -10,7 +10,7 @@ export interface ExtendedChatMessage extends ChatMessage {
 
 export interface RequestOptions {
   message: string
-  lastContext?: { conversationId?: string; parentMessageId?: string }
+  lastContext?: { conversationId?: string, parentMessageId?: string }
   process?: (chat: ExtendedChatMessage) => void
   systemMessage?: string
   temperature?: number

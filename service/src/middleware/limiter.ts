@@ -1,26 +1,22 @@
+import process from 'node:process'
 import { rateLimit } from 'express-rate-limit'
 import { isNotEmptyString } from '../utils/is'
 
 const MAX_REQUEST_PER_HOUR = process.env.MAX_REQUEST_PER_HOUR
 
-const maxCount = (isNotEmptyString(MAX_REQUEST_PER_HOUR) && !isNaN(Number(MAX_REQUEST_PER_HOUR)))
-  ? parseInt(MAX_REQUEST_PER_HOUR)
+const maxCount = (isNotEmptyString(MAX_REQUEST_PER_HOUR) && !Number.isNaN(Number(MAX_REQUEST_PER_HOUR)))
+  ? Number.parseInt(MAX_REQUEST_PER_HOUR, 10)
   : 0 // 0 means unlimited
 
-let limiter: any
-
-if (maxCount > 0) {
-  limiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // Maximum number of accesses within an hour
-    max: maxCount,
-    statusCode: 200, // 200 means success，but the message is 'Too many request from this IP in 1 hour'
-    message: async (req, res) => {
-      res.send({ status: 'Fail', message: 'Too many request from this IP in 1 hour', data: null })
-    },
-  })
-}
-else {
-  limiter = (req, res, next) => next()
-}
+const limiter: any = maxCount > 0
+  ? rateLimit({
+      windowMs: 60 * 60 * 1000, // Maximum number of accesses within an hour
+      max: maxCount,
+      statusCode: 200, // 200 means success，but the message is 'Too many request from this IP in 1 hour'
+      message: async (req, res) => {
+        res.send({ status: 'Fail', message: 'Too many request from this IP in 1 hour', data: null })
+      },
+    })
+  : (req, res, next) => next()
 
 export { limiter }

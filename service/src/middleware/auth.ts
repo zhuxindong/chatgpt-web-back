@@ -1,6 +1,8 @@
+import type { NextFunction, Request, Response } from 'express'
+import process from 'node:process'
 import { isNotEmptyString } from '../utils/is'
 
-const auth = async (req, res, next) => {
+async function auth(req: Request, res: Response, next: NextFunction) {
   const AUTH_SECRET_KEY = process.env.AUTH_SECRET_KEY
   if (isNotEmptyString(AUTH_SECRET_KEY)) {
     try {

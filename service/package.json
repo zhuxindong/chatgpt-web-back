@@ -1,5 +1,6 @@
 {
   "name": "chatgpt-web-service",
+  "type": "module",
   "version": "1.0.0",
   "private": false,
   "description": "ChatGPT Web Service",
@@ -36,7 +37,7 @@
     "socks-proxy-agent": "^7.0.0"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^0.35.3",
+    "@antfu/eslint-config": "^5.4.1",
     "@types/express": "^4.17.17",
     "@types/node": "^18.14.6",
     "eslint": "^9.36.0",

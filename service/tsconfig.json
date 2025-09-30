@@ -6,24 +6,24 @@
       "DOM",
       "DOM.Iterable"
     ],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": false,
-    "forceConsistentCasingInFileNames": true,
-    "esModuleInterop": true,
+    "baseUrl": ".",
     "module": "esnext",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "baseUrl": ".",
+    "allowJs": true,
+    "strict": false,
+    "noEmit": true,
     "outDir": "build",
-    "noEmit": true
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true
   },
+  "include": [
+    "**/*.ts"
+  ],
   "exclude": [
     "node_modules",
     "build"
-  ],
-  "include": [
-    "**/*.ts"
   ]
 }

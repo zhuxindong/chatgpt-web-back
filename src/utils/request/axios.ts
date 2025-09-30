@@ -7,7 +7,19 @@ const service = axios.create({
 
 service.interceptors.request.use(
   (config) => {
-    const token = useAuthStore().token
+    const authStore = useAuthStore()
+
+    // Allow requests to /session and /verify without checking for auth
+    if (config.url === '/session' || config.url === '/verify')
+      return config
+
+    const token = authStore.token
+    const session = authStore.session
+
+    // If auth is required by the session but no token is present, block the request
+    if (session && String(session.auth) === 'true' && !token)
+      return Promise.reject(new Error('Unauthorized: Authentication is required.'))
+
     if (token)
       config.headers.Authorization = `Bearer ${token}`
     return config

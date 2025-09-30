@@ -1,14 +1,15 @@
-import * as dotenv from 'dotenv'
-import 'isomorphic-fetch'
 import type { ChatGPTAPIOptions, ChatMessage } from 'chatgpt'
-import { ChatGPTAPI, ChatGPTUnofficialProxyAPI } from 'chatgpt'
-import { SocksProxyAgent } from 'socks-proxy-agent'
-import httpsProxyAgent from 'https-proxy-agent'
-import fetch from 'node-fetch'
-import { sendResponse } from '../utils'
-import { isNotEmptyString } from '../utils/is'
 import type { ApiModel, ChatContext, ChatGPTUnofficialProxyAPIOptions, ModelConfig } from '../types'
 import type { ExtendedChatMessage, RequestOptions, SetProxyOptions, UsageResponse } from './types'
+import process from 'node:process'
+import { ChatGPTAPI, ChatGPTUnofficialProxyAPI } from 'chatgpt'
+import * as dotenv from 'dotenv'
+import httpsProxyAgent from 'https-proxy-agent'
+import fetch from 'node-fetch'
+import { SocksProxyAgent } from 'socks-proxy-agent'
+import { sendResponse } from '../utils'
+import { isNotEmptyString } from '../utils/is'
+import 'isomorphic-fetch'
 
 const { HttpsProxyAgent } = httpsProxyAgent
 
@@ -23,7 +24,7 @@ const ErrorCodeMessage: Record<string, string> = {
   500: '[OpenAI] 服务器繁忙，请稍后再试 | Internal Server Error',
 }
 
-const timeoutMs: number = !isNaN(+process.env.TIMEOUT_MS) ? +process.env.TIMEOUT_MS : 100 * 1000
+const timeoutMs: number = !Number.isNaN(+process.env.TIMEOUT_MS) ? +process.env.TIMEOUT_MS : 100 * 1000
 const disableDebug: boolean = process.env.OPENAI_API_DISABLE_DEBUG === 'true'
 
 let apiModel: ApiModel
@@ -36,7 +37,8 @@ const model = models[0] // 默认使用第一个模型
 if (!isNotEmptyString(process.env.OPENAI_API_KEY) && !isNotEmptyString(process.env.OPENAI_ACCESS_TOKEN))
   throw new Error('Missing OPENAI_API_KEY or OPENAI_ACCESS_TOKEN environment variable')
 
-let api: ChatGPTAPI | ChatGPTUnofficialProxyAPI
+// eslint-disable-next-line unused-imports/no-unused-vars
+let api: ChatGPTAPI | ChatGPTUnofficialProxyAPI;
 
 (async () => {
   // More Info: https://github.com/transitive-bullshit/chatgpt-api
@@ -148,7 +150,7 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
       },
     }
 
-    console.log('Sending request to API with body:', JSON.stringify(requestBody, null, 2))
+    console.warn('Sending request to API with body:', JSON.stringify(requestBody, null, 2))
 
     const response = await fetch(`${OPENAI_API_BASE_URL}/chat/completions`, {
       method: 'POST',
@@ -170,7 +172,7 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
     for await (const chunk of response.body as any) {
       try {
         const chunkStr = chunk.toString()
-        console.log('Received chunk from API:', chunkStr) // Log the raw chunk
+        console.warn('Received chunk from API:', chunkStr) // Log the raw chunk
         const lines = chunkStr.split('\n\n')
         for (const line of lines) {
           if (line.startsWith('data: ')) {
@@ -192,19 +194,19 @@ async function chatReplyProcess(requestOptions: RequestOptions) {
               }
               callback?.(chatMessage)
             }
-            catch (error) {
+            catch {
               // Skips noisy errors from the stream ending
             }
           }
         }
       }
       catch (error) {
-        global.console.log(error)
+        console.warn(error)
       }
     }
   }
   catch (error: any) {
-    global.console.log(error)
+    console.warn(error)
     return sendResponse({ type: 'Fail', message: error.message ?? 'Please check the back-end console' })
   }
 }
@@ -242,7 +244,7 @@ async function fetchUsage() {
     // 获取已使用量
     const useResponse = await options.fetch(urlUsage, { headers })
     if (!useResponse.ok) {
-      global.console.log('获取使用量失败:', useResponse.statusText)
+      console.warn('获取使用量失败:', useResponse.statusText)
       return Promise.resolve('-')
     }
     const usageData = await useResponse.json() as UsageResponse
@@ -250,7 +252,7 @@ async function fetchUsage() {
     return Promise.resolve(usage ? `$${usage}` : '-')
   }
   catch (error) {
-    global.console.log('获取使用量异常:', error)
+    console.warn('获取使用量异常:', error)
     return Promise.resolve('-')
   }
 }
@@ -312,6 +314,6 @@ function currentModel(): ApiModel {
 
 export type { ChatContext, ChatMessage, ExtendedChatMessage }
 
-export { chatReplyProcess, chatConfig, currentModel }
+export { chatConfig, chatReplyProcess, currentModel }
 
 export { models }
