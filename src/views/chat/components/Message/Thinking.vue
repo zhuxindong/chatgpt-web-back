@@ -5,7 +5,16 @@ import { SvgIcon } from '@/components/common'
 
 const props = defineProps<{
   thinking: string
+  thinkingTime?: number
+  thinkingFinished?: boolean
+  loading?: boolean
 }>()
+
+const thinkingText = computed(() => {
+  if (!props.thinkingFinished)
+    return `Thinking... ( ${props.thinkingTime?.toFixed(1) ?? 0}s )`
+  return `Finished. ( ${props.thinkingTime?.toFixed(1) ?? 0}s )`
+})
 
 const mdi = new MarkdownIt({
   html: true,
@@ -28,7 +37,7 @@ watch(() => props.thinking, async () => {
   <div class="thinking-container">
     <div class="summary-header" @click="isOpen = !isOpen">
       <SvgIcon icon="ri:lightbulb-flash-line" />
-      <span>Thinking...</span>
+      <span>{{ thinkingText }}</span>
       <SvgIcon
         class="toggle-icon"
         :class="{ 'is-open': isOpen }"
@@ -47,10 +56,11 @@ watch(() => props.thinking, async () => {
 
 <style scoped>
 .thinking-container {
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(212, 175, 55, 0.3);
   border-radius: 0.5rem;
   margin-bottom: 0.5rem;
-  background-color: #f9fafb;
+  background-color: #ffffff;
+  box-shadow: inset 0 0 8px rgba(212, 175, 55, 0.2);
 }
 
 .summary-header {
@@ -60,6 +70,17 @@ watch(() => props.thinking, async () => {
   font-weight: 600;
   cursor: pointer;
   padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dark .summary-header {
+  border-bottom-color: rgba(212, 175, 55, 0.4);
+}
+
+.dark .thinking-container {
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background-color: #2c2c2f;
+  box-shadow: inset 0 0 8px rgba(212, 175, 55, 0.3);
 }
 
 .toggle-icon {

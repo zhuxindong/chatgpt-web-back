@@ -26,7 +26,7 @@ const ms = useMessage()
 const chatStore = useChatStore()
 
 const { isMobile } = useBasicLayout()
-const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex, appendText } = useChat()
+const { addChat, updateChat, updateChatSome, getChatByUuidAndIndex } = useChat()
 const { scrollRef, scrollToBottom, scrollToBottomIfAtBottom } = useScroll()
 const { usingContext, toggleUsingContext } = useUsingContext()
 
@@ -74,6 +74,8 @@ function handleSubmit() {
 
 async function onConversation() {
   let message = prompt.value
+  let timer: NodeJS.Timeout | null = null
+  let startTime: number | null = null
 
   if (loading.value)
     return
@@ -116,6 +118,7 @@ async function onConversation() {
       loading: true,
       inversion: false,
       error: false,
+      thinkingFinished: false,
       conversationOptions: null,
       requestOptions: { prompt: message, options: { ...options } },
     },
@@ -123,6 +126,18 @@ async function onConversation() {
   scrollToBottom()
 
   try {
+    startTime = Date.now()
+    timer = setInterval(() => {
+      const lastIndex = dataSources.value.length - 1
+      if (getChatByUuidAndIndex(+uuid, lastIndex)?.loading) {
+        const thinkingTime = (Date.now() - startTime!) / 1000
+        updateChatSome(+uuid, lastIndex, { thinkingTime })
+      }
+      else if (timer) {
+        clearInterval(timer)
+      }
+    }, 100)
+
     let processedLength = 0
     const fetchChatAPIOnce = async () => {
       await fetchChatAPIProcess<Chat.ConversationResponse>({
@@ -159,6 +174,16 @@ async function onConversation() {
 
                     if (data.text)
                       updates.text = (updates.text ?? currentChat.text) + data.text
+
+                    // Stop timer when text starts streaming
+                    if (data.text && !currentChat.thinkingFinished) {
+                      if (timer) {
+                        clearInterval(timer)
+                        timer = null
+                      }
+                      updates.thinkingTime = (Date.now() - startTime!) / 1000
+                      updates.thinkingFinished = true
+                    }
 
                     if (Object.keys(updates).length > 0)
                       updateChatSome(+uuid, lastIndex, updates)
@@ -230,6 +255,12 @@ async function onConversation() {
   }
   finally {
     loading.value = false
+    if (timer)
+      clearInterval(timer)
+    if (startTime) {
+      const thinkingTime = (Date.now() - startTime) / 1000
+      updateChatSome(+uuid, dataSources.value.length - 1, { thinkingTime })
+    }
   }
 }
 
@@ -249,6 +280,10 @@ async function onRegenerate(index: number) {
     options = { ...requestOptions.options }
 
   loading.value = true
+
+  // 清除旧的计时器（如果存在）
+  // let timer: NodeJS.Timeout | null = null
+  // let startTime: number | null = null
 
   updateChat(
     +uuid,
@@ -519,6 +554,8 @@ onUnmounted(() => {
                   :date-time="item.dateTime"
                   :text="item.text"
                   :thinking="item.thinking"
+                  :thinking-time="item.thinkingTime"
+                  :thinking-finished="item.thinkingFinished"
                   :inversion="item.inversion"
                   :error="item.error"
                   :loading="item.loading"

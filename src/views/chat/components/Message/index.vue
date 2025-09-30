@@ -21,6 +21,8 @@ interface Props {
   loading?: boolean
   model?: string
   thinking?: string
+  thinkingTime?: number
+  thinkingFinished?: boolean
   uuid?: number
   index?: number
 }
@@ -120,6 +122,9 @@ async function handleCopy() {
         <ThinkingComponent
           v-if="thinking"
           :thinking="thinking"
+          :thinking-time="thinkingTime"
+          :thinking-finished="thinkingFinished"
+          :loading="loading"
         />
         <div
           class="flex items-end gap-1"
