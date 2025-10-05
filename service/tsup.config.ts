@@ -10,4 +10,10 @@ export default defineConfig({
   minify: false,
   shims: true,
   dts: false,
+  clean: true,
+  outExtension() {
+    return {
+      js: '.mjs',
+    }
+  },
 })
