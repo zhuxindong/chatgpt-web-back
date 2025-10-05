@@ -22,13 +22,13 @@ RUN npm install pnpm -g
 
 WORKDIR /app
 
-COPY /service/package.json /app
+COPY service/package.json /app
 
-COPY /service/pnpm-lock.yaml /app
+COPY service/pnpm-lock.yaml /app
 
 RUN pnpm install
 
-COPY /service /app
+COPY service /app
 
 RUN pnpm build
 
@@ -39,9 +39,9 @@ RUN npm install pnpm -g
 
 WORKDIR /app
 
-COPY /service/package.json /app
+COPY service/package.json /app
 
-COPY /service/pnpm-lock.yaml /app
+COPY service/pnpm-lock.yaml /app
 
 RUN pnpm install --production && rm -rf /root/.npm /root/.pnpm-store /usr/local/share/.cache /tmp/*
 
